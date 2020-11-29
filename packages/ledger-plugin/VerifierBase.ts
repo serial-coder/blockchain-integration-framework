@@ -6,36 +6,45 @@
  */
 
 import { Verifier, ApiInfo, LedgerEvent, VerifierEventListener } from './LedgerPlugin'
+import { makeApiInfoList } from './DriverCommon'
 import { json2str, addSocket, getStoredSocket, deleteAndDisconnectSocke } from './DriverCommon'
 import { LedgerOperation } from './../business-logic-plugin/LedgerOperation';
 import { Socket } from 'dgram';
+import { ConfigUtil } from '../routing-interface/util/ConfigUtil';
 
 const io = require('socket.io-client');
 
 const fs = require('fs');
 const path = require('path');
-const config: any = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../config/default.json"), 'utf8'));
+const config: any = ConfigUtil.getConfig();
 import { getLogger } from "log4js";
 const moduleName = 'VerifierBase';
 const logger = getLogger(`${moduleName}`);
 logger.level = config.logLevel;
 
 export class VerifierBase implements Verifier {
+    validatorID: string = "";
     validatorUrl: string = "";
+    apiInfo: {} = null;
+    counterReqID: number = 1;
     eventListener: VerifierEventListener | null = null; // Listener for events from Ledger
 
     constructor(ledgerInfo: string) {
         // TODO: Configure the Verifier based on the connection information
         const ledgerInfoObj: {} = JSON.parse(ledgerInfo);
+        this.validatorID = ledgerInfoObj['validatorID'];
         this.validatorUrl = ledgerInfoObj['validatorURL'];
+        this.apiInfo = ledgerInfoObj['apiInfo'];
     }
 
     // BLP -> Verifier
     getApiList(): ApiInfo[] {
         logger.debug('call : super.getApiList');
-        return;
+        // Returns API information available for requestLedgerOperation.
+        return makeApiInfoList(this.apiInfo);
     };
 
+    // NOTE: This function will be deleted due to the updating of API functions
     requestLedgerOperation(param: LedgerOperation): void {
         logger.debug('call : requestLedgerOperation');
         try {
@@ -62,6 +71,75 @@ export class VerifierBase implements Verifier {
             throw err;
         }
     };
+    
+    execSyncFunction(param: LedgerOperation): Promise<any> {
+        return new Promise((resolve, reject) => {
+            logger.debug('call : execSyncFunction');
+            try {
+                logger.debug(`##in execSyncFunction, LedgerOperation = ${JSON.stringify(param)}`);
+                let responseFlag: boolean = false;
+                
+                const reqID = this.genarateReqID();
+                logger.debug(`##execSyncFunction, reqID = ${reqID}`);
+                
+                const socketOptions: {} = {
+                    rejectUnauthorized: config.socketOptions.rejectUnauthorized,
+                    reconnection: config.socketOptions.reconnection,
+                    timeout: config.socketOptions.timeout,
+                };
+                logger.debug(`socketOptions = ${JSON.stringify(socketOptions)}`);
+                const socket: Socket = io(this.validatorUrl, socketOptions);
+                socket.on("connect_error", (err: object) => {
+                    logger.error("##connect_error:", err);
+                    // end communication
+                    socket.disconnect();
+                    reject(err);
+                });
+                socket.on("connect_timeout", (err: object) => {
+                    logger.error("####Error:", err);
+                    // end communication
+                    socket.disconnect();
+                    reject(err);
+                });
+                socket.on("error", (err: object) => {
+                    logger.error("####Error:", err);
+                    socket.disconnect();
+                    reject(err);
+                });
+                socket.on("response", (result: any) => {
+                    logger.debug("#[recv]response, res: " + json2str(result));
+                    if (reqID === result.id) {
+                        responseFlag = true;
+                        logger.debug(`##execSyncFunction: resObj: ${JSON.stringify(result.resObj)}`);
+                        resolve(result.resObj);
+                    }
+                });
+
+                const apiType: string = param.apiType;
+                //const progress: string = param.progress;
+                let data: {} = param.data;
+                data["reqID"] = reqID;
+                const requestData: {} = {
+                    func: apiType,
+                    args: data
+                };
+                logger.debug('requestData : ' + JSON.stringify(requestData));
+                socket.emit('request', requestData);
+                logger.debug('set timeout');
+                
+                setTimeout(() => {
+                    if (responseFlag === false) {
+                        logger.debug('requestTimeout reqID : ' + reqID);
+                        resolve({"status":504, "amount":0});
+                    }
+                }, config.verifier.syncFunctionTimeoutMillisecond);
+            }
+            catch (err) {
+                logger.error(`##Error: execSyncFunction, ${err}`);
+                reject(err);
+            }
+        });
+    }
 
     startMonitor(): Promise<LedgerEvent> {
         return new Promise((resolve, reject) => {
@@ -77,8 +155,6 @@ export class VerifierBase implements Verifier {
                 };
                 logger.debug(`socketOptions = ${JSON.stringify(socketOptions)}`);
                 const socket: Socket = io(this.validatorUrl, socketOptions);
-                const eventListener = this.eventListener;
-                const className = this.constructor.name;
 
                 socket.on("connect_error", (err: object) => {
                     logger.error("##connect_error:", err);
@@ -104,22 +180,17 @@ export class VerifierBase implements Verifier {
                     // output the data received from the client
                     logger.debug("#[recv]eventReceived, res: " + json2str(res));
 
+                    logger.debug(`##set eventListener: ${this.eventListener}, ${this.constructor.name}, ${this.validatorID}`);
+                    const eventListener = this.eventListener;
+
                     if (eventListener != null) {
-                        const eventFilter = eventListener.getEventFilter();
+                        // const eventFilter = eventListener.getEventFilter();
 
                         const event = new LedgerEvent();
-                        event.verifierId = className;
+                        event.verifierId = this.validatorID;
                         event.data = res;
 
-                        logger.debug(`####call eventListener.isTargetEvent()`);
-                        if (eventListener.isTargetEvent(event)) {
-                            logger.debug(`##call eventListener, eventListener: ${eventListener}`);
-                            eventListener.onEvent(event);
-                            logger.debug(`##called eventListener`);
-                        }
-                        else {
-                            logger.warn(`##skip eventListener, not target event.`);
-                        }
+                        eventListener.onEvent(event);
                     }
                     else {
                         logger.warn(`##skip eventListener`);
@@ -168,36 +239,18 @@ export class VerifierBase implements Verifier {
         }
     }
 
-    static isTargetEvent(filter: object, event: object): boolean {
-        // NOTE: Filter only supports txid
-        if (filter == null) {
-            logger.warn(`eventFilter: null.`);
-            return true;
-        }
-
-        if (!filter.hasOwnProperty('txId')) {
-            logger.warn(`eventFilter: not exist txId.`);
-            return true;
-        }
-
-        if (!filter.hasOwnProperty('getTxIdFromEvent')) {
-            logger.warn(`eventFilter: not exist getTxIdFromEvent.`);
-            return true;
-        }
-
-        // Judgment of the filter condition
-        const filterTxId = filter['txId'];
-        const eventTxId = filter['getTxIdFromEvent'](event);
-        const result = (eventTxId === filterTxId);
-        // logger.debug(`####filterIxId: ${filterTxId}, eventTxId: ${eventTxId}, result: ${result}`);
-        return result;
-    }
-
     setEventListener(eventListener: VerifierEventListener | null): void {
         logger.debug(`##call : super.setEventListener`);
         this.eventListener = eventListener;
         return;
     };
+    
+    genarateReqID(): string {
+        if (this.counterReqID > config.verifier.maxCounterRequestID) {
+            this.counterReqID = 1;
+        }
+        return `${this.validatorID}_${this.counterReqID++}`;
+    }
 
     // Validator -> Verifier
     // NOTE: The following methods are not implemented this time

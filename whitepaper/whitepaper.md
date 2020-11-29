@@ -518,51 +518,55 @@ gets replaced by a traditional bank account holding USD.
 ## 3.8 Blockchain Migration
 
 
-| Use Case Attribute Name    | Use Case Attribute Value                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Use Case Title             | Blockchain Migration                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Use Case                   | 1. `Consortium A` operates a set of services/use cases on a source blockchain.<br>2. `Consortium A` decides to use another blockchain infrastructure to support their use case. <br>3. `Consortium A` migrates the existing assets to another blockchain.
-| Interworking patterns      | Value transfer                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Type of Social Interaction | Asset Transfer                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Narrative                  | A group of members (`Consortium A`) are operating a source blockchain (e.g., a Hyperledger Fabric instance) would like to migrate the functionality to a target blockchain (e.g., Hyperledger Besu), in order to expand their reach. However, such migration requires lots of resources and technical effort. The `Blockchain Migration feature` from Hyperledger Cactus can provide support for doing so, by connecting to the source and target blockchains, and performing the migration task.
-| Actors                     | 1. Consortium members composing the `Consortium A`: The group of entities operating the source blockchain, who collectively aim at performing a migration to a target blockchain.                                                                                                                                                                                                                                                                                                                                                                    |
-| Goals of Actors            | `Consortium A` wishes to be able to operate their use case on the target blockchain. The service is functional after the migration.                                                                                                                                                                                                                                                                                                                                                                                   |
-| Success Scenario           | The consortium agrees on the migration, and it is performed in a decentralized way. Blockchain migration succeeds without issues.                                                                                                                                                                                                                                                                                                                                                        |
-| Success Criteria           | Assets have been migrated. An identical history for those assets has been reconstructed on the target blockchain.                                                                                                                                                                                                                                                                                                                                                |
-| Failure Criteria           | 1. It was not migrate the assets. <br> It was not possible to reconstruct the asset history on the target blockchain.                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Prerequisites              | 1. All members belonging to `Consortium A` want to migrate the blockchain. <br> 2. The `Consortium A` controls the source blockchain. <br>3. `Consortium A` has write and execute permissions on the target blockchain<br>
-| Comments                   | An asset is defined as data or smart contracts originating from the source blockchain. <br> This use case relates to use cases implying asset portability (e.g., 2.1) <br> This use case provides blockchain portability, thus reducing costs and fostering blockchain adoption.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-
+| Use Case Attribute Name    | Use Case Attribute Value |
+| -------------------------- | -------------------------------------------- |
+| Use Case Title             | Blockchain Migration |
+| Use Case                   | 1. `Consortium A` operates a set of services on the source blockchain.<br>2. `Consortium A` decides to use another blockchain instance to run its services. <br>3. `Consortium A` migrates the existing assets and data to the target blockchain.<br>4. `Consortium A` runs the services on the target blockchain.
+| Interworking patterns      | Value transfer, Data transfer |
+| Type of Social Interaction | Asset and Data Transfer |
+| Narrative                  | A group of members  (`Consortium A`) that operates the source blockchain (e.g., Hyperledger Fabric instance) would like to migrate the assets, data, and functionality to the target blockchain (e.g., Hyperledger Besu instance) to expand their reach or to benefits from better performance, lower cost, or enhanced privacy offered by the target blockchain. In the context of public blockchains, both the group size and the number of services could even be one. For example, a user that runs a Decentralized Application (DApp) on a publication blockchain wants to migrate DApp's assets, data, and functionality to a target blockchain that is either public or private.<br>The migration is initiated only after all members of `Consortium A` provide their consent to migrate. During the migration, assets and data that are required to continue the services are copied to the target blockchain. A trusted intermediatory (e.g., Oracle) is also authorized by the members of `Consortium A` to show the current state of assets and data on source blockchain to the target blockchain. <br>Assets on the source blockchain are burned and smart contracts are destructed during the migration to prevent double-spending. Proof-of-burn is verified on the target blockchain before creating the assets, smart contracts, or their state using the following process: <br>1. `Consortium A` requests smart-contract on the target blockchain (via `Cactus`) to transfer their asset/data, which will then wait until confirmation from the smart contract on the source blockchain. <br>2. `Consortium A` requests smart contract on source blockchain (via `Cactus`) to burn their asset/data. <br>3. Smart contract on source blockchain burns the asset/data and notifies that to the smart contract on the target blockchain. <br>4. Given the confirmation from Step 3, the smart contract on target blockchain creates asset/data. <br>After the migration, future transactions are processed on the target blockchain. In contrast, requests to access historical transactions are directed to the source blockchain. As assets are burned and smart contracts are destructed, any future attempt to manipulate them on the source blockchain will fail.<br>Regardless of whether the migration involves an entire blockchain or assets, data, and smart contracts of a DApp, migration requires lots of technical effort and time. The `Blockchain Migration` feature from `Cactus` can provide support for doing so by connecting source and target blockchains; proving values and proof-of-burn of assets, smart contracts, and data imported from the source blockchain to the target; and then performing the migration task. |
+| Actors                     | 1. `Consortium A`: The group of entities operating on the source blockchain who collectively aims at performing the migration to the target blockchain. |
+| Goals of Actors            | 1. `Consortium A`: Wants to be able to operate its services on the target blockchain while gaining its benefits such as better performance, lower cost, or enhanced privacy. |
+| Success Scenario           | Asset and data (including smart contracts) are available on the target blockchain, enabling `Consortium A`'s services to operate on the target blockchain.|
+| Success Criteria           | Migration starts at a set time, and all desired assets and data, as well as their histroy have been migrated in a decentralized way. |
+| Failure Criteria           | States of all assets and data on the target blockchain do not match the states on the source blockchain before migration, e.g., when transactions replayed on target blockchain are reordered. <br>`Consortium A` is unable to migrate to the target blockchain for several reasons, such as
+inability to recreate the same smart contract logic, inability to arbitrary recreate native assets on target blockchain, and lack of access to private keys of external accounts. |
+| Prerequisites              | 1. `Consortium A` wants to migrate the assets and data on the source blockchain, and have chosen a desirable target blockchain.<br>2. Migration plan and window are informed to all members of the consortium, and they agree to the migration.<br>3. `Consortium A` has write and execute permissions on the target blockchain. |
+| Comments                   | * `Consortium A` is the governance body of services running on the source blockchain.<br> * Data include smart contracts and their data originating from the source blockchain. Depending on the use case, a subset of the assets and data may be recreated on the target blockchain.<br>* This use case relates to the use cases implying asset and data portability (e.g., 2.1). However, migration is mostly one-way and nonreversible.<br>* This use case provides blockchain portability; thus, retains blockchain properties across migration, reduces costs, time to migration, and foster blockchain adoption. |
 
 ---
-Motivation: The suitability of a blockchain solution regarding a use case depends on the underlying blockchain properties.
-            As blockchain technologies are maturing at a fast pace, in particular private blockchains, its properties might change. Consequently, this creates an unbalance between user expectations' and the applicability of the solution.
-            It is, therefore, desirable for an organization to be able to replace the blockchain providing the infrastructure to a certain service.
 
-Currently, when a consortium wants to migrate their blockchain (e.g., the source blockchain became obsolete, cryptographic algorithms no longer secure, etc), the solution is to re-implement business logic using a different platform, yielding great effort.
-Data migrations have been performed before on public blockchains [[2](#8-references),[3](#8-references)], both recent endeavors to render flexibility to blockchain-based solutions.
-In those works, the authors propose simple data migration capabilities for public, permissionless blockchains, in which a user can specify requirements for the blockchain infrastructure supporting their service.
+**Motivation**
+
+The suitability of a blockchain platform regarding a use case depends on the underlying blockchain properties.
+As blockchain technologies are maturing at a fast pace, in particular private blockchains, its properties such as performance (i.e., throughput, latency, or finality), transaction fees, and privacy might change.
+Also, blockchain platform changes, bug fixes, security, and governance issues may render an existing application/service suboptimal.
+Further, business objectives such as the interest to launch own blockchain instance, partnerships, mergers, and acquisitions may motivate a migration.
+Consequently, this creates an imbalance between the user expectations and the applicability of the existing solution.
+It is, therefore, desirable for an organization/consortium to be able to replace the blockchain providing the infrastructure to a particular application/service.
+
+Currently, when a consortium wants to migrate the entire blockchain or user wants to migrate a DApp on a public blockchain (e.g., the source blockchain became obsolete, cryptographic algorithms are no longer secure, and business reasons), the solution is to re-implement business logic using a different blockchain platform, and arbitrary recreate the assets and data on the target blockchain, yielding great effort and time, as well as losing blockchain properties such as immutability, consistency, and transparency.
+Data migrations have been performed before on public blockchains [[2](#8-references), [3](#8-references), [4](#8-references)] to render flexibility to blockchain-based solutions.
+Such work proposes data migration capabilities and patterns for public, permissionless blockchains, in which a user can specify requirements and scope for the blockchain infrastructure supporting their service.
 
 ### 3.8.1 Blockchain Data Migration
-Data migration corresponds to capture the set or subset of data assets (information, in the form of bytes) on a source blockchain, and construct a representation of those in a target blockchain. Note that the models underlying both blockchains do not need to be the same (e.g., world state model in Hyperledger Fabric vs account model in Ethereum).
-To migrate data, it should be possible to capture the necessary information from the source blockchain and to write it on the target blockchain. The history of information should also be migrated (i.e., the updates over the elements considered information).
+Data migration corresponds to capturing the subset of assets and data on a source blockchain and constructing a representation of those in a target blockchain. Note that the models underlying both blockchains do not need to be the same (e.g., world state model in Hyperledger Fabric vs account-balance model in Ethereum).
+For migration to be effective, it should be possible to capture the necessary assets and data from the source blockchain and to write them on the target blockchain.
 
 
 <img width="700" src="./use-case-sequence-diagram-blockchain-migration.png">
 
 ### 3.8.2 Blockchain Smart Contract Migration
-The task of migrating a smart contract comprises the task of migrating data. In specific, the information should be accessible and writeable on another blockchain. Additionally, the target blockchain's virtual machine should support the computational complexity of the source blockchain (e.g., one cannot migrate all Ethereum smart contracts to Bitcoin, but the other way around is feasible).
-
-Automatic smart contract migration yields risks for enterprise blockchain systems, and thus the solution is non-trivial.
+The task of migrating a smart contract comprises the task of migrating the smart contract logic and data embedded in it. In specific, the data should be accessible and writeable on another blockchain. When the target blockchain can execute a smart contract written for the source blockchain, execution behaviour can be preserved by redeploying the same smart contract (e.g., reusing a smart contract written for Ethereum on Hyperldger Besu) and recreating its assets and data. If code reuse is not possible (either at source or binary code level), the target blockchain's virtual machine should support the computational complexity of the source blockchain (e.g., one cannot migrate all Ethereum smart contracts to Bitcoin, but the other way around is feasible).
+Automatic smart contract migration (with or without translation) yields risks for enterprise blockchain systems, and thus the solution is nontrivial [[4](#8-references)].
 
 ### 3.8.3 Semi-Automatic Blockchain Migration
 
-By expressing my preferences in terms of functional and non-functional requirements, Hyperledger Cactus can recommend a set of suitable blockchains, as the target of the migration.
-Firstly, I could know in real-time the characteristics of the target blockchain that would influence my decision.
-For instance, the platform can analyze see the cost of writing information to Ethereum, the exchange rate US dollar - Ether, the average time to mine a block, the transaction throughput, and the network hash rate [[3](#8-references)</sup>].
-Based on that, the framework proposes a migration, with indicators such as predicted cost, predicted time to complete migration and the likelihood of success.
-As Ethereum does not show a desirable throughput, I choose Polkadot's platform. As it yields higher throughput, I then safely migrate my solution from Fabric to Polkadot, without compromising the solution in production.
- This feature is more useful regarding public blockchains.
+By expressing a user's preferences in terms of functional and non-functional requirements, `Cactus` can recommend a set of suitable blockchains, as the target for the migration.
+Firstly, a user could know in real-time the characteristics of the target blockchain that would influence the migration decision. For instance, the platform can analyze the cost of writing data to Ethereum, Ether:USD exchange rate, average inter-block time, transaction throughput, and network hash rate [[3](#8-references)].
+Based on those characteristics and user-defined requirements, `Cactus` proposes a migration with indicators such as predicted cost, time to complete the migration, and the likelihood of success.
+For example, when transaction inclusion time or fee on Ethereum exceeds a threshold, `Cactus` may choose Polkadot platform, as it yields lower transaction inclusion time or fee. `Cactus` then safely migrate assets, data, and future transactions from Ethereum to Polkadot, without compromising the solution in production.
+ This feature is more useful for public blockchains.
 
 
 <div style="page-break-after: always; visibility: hidden"><!-- \pagebreak --></div>
@@ -772,24 +776,31 @@ NOTE: resource `trade` and `logic` are cannot be updated nor delete
 
 ### 5.3.2 Ledger plugin API
 
-Ledger plugin API is designed for allowing **Business Logic Plugin** to operate and/or monitor Ledger behind **Validator** component.
+Ledger plugin API is designed for allowing **Business Logic Plugin** to operate and/or monitor Ledger behind the components of **Verifier** and **Validator**.
 
-Each **Ledger plugin** can be implemented to provide common API which absorbs difference between integrating blockchain platforms.
-The developper can focus on implementing business logic of **Business Logic Plugin** in applicatio level once **Ledger plugin** for specific platform, ex. HLF or Besu, was implemented.
+**Validator** provides a common set of functions that abstract communication between **Verifier** and **Ledger**.  Please note that Validator will not have any privilege to manipulate assets on the Ledger behind it.
+**Verifier** can receive requests from **Business Logic Plugin** and reply responses and events asynchronously.
 
 APIs of Verifier and Validator are described as the following table:
 
-
-| No. | Component | API Name | Description |
-| --- | --- | --- | --- |
-| 1. | BLP -> Verifier | requestLedgerOperation | Request a verifier to execute a ledger operation |
-| 2. | BLP -> Verifier | getApiList | Get the list of available APIs on Verifier |
-| 3. | BLP -> Verifier | startMonitor | Request a verifier to start monitoring ledger |
-| 4. | BLP -> Verifier | stopMonitor | Rrequest a verifier to stop monitoring ledger |
-| 5. | Validator -> Verifier | connect | request a validator to start a bi-directional communication channel |
-| 6. | Validator -> Verifier | disconnect | request a validator to stop a bi-directional communication channel |
-| 7. | Validator -> Verifier | getVerifierInformation | Get the verifier information including version, name, ID, and other information |
-| 8. | Verifier -> Validator | getValidatorInformation | Get the validator information including version, name, ID, and other information |
+| No. | Component | API Name | Input | Description |
+| --- | --- | --- | --- | --- |
+| 1. | Verifier | getVerifierInformation | none | Get the verifier information including version, name, ID, and other information |
+| 2. | Verifier | getSmartContractList | none | Get the list of available smart contracts at the connected ledger |
+| 3. | Verifier | sendSignedTransaction | `signedTransaction`(string) | Request a verifier to execute a ledger operation |
+| 4. | Verifier | getBalance | `address`(string) | Get balance of an account for native token on a ledger |
+| 5. | Verifier | execSyncFunction | `address`(string)<br>`funcName`(string)<br>`args`(string[]) | Execute a synchronous function held by a smart contract |
+| 6. | Verifier | startMonitor | `clientId`(string)<br>`cb`(function) | Request a verifier to start monitoring ledger |
+| 7. | Verifier | stopMonitor | `clientId`(string) | Rrequest a verifier to stop monitoring ledger |
+| 8. | Verifier | connect | `validatorURL`(string)<br>authentication credential | request a validator to start a bi-directional communication channel via a verifier |
+| 9. | Verifier | disconnect | none | request a validator to stop a bi-directional communication channel via a verifier |
+| 10. | Validator | getValidatorInformation | `validatorURL`(string) | Get the validator information including version, name, ID, and other information |
+| 11. | Verifier | getSmartContractList | none | Get the list of available smart contracts at the connected ledger |
+| 12. | Validator | sendSignedTransaction | `signedTransaction`(string) | Send already-signed transactions to a ledger |
+| 13. | Validator | getBalance | `address`(string) | Get balance of an account for native token on a ledger |
+| 14. | Validator | execSyncFunction | `address`(string)<br>`funcName`(string)<br>`args`(string[]) | Execute a synchronous function held by a smart contract |
+| 15. | Validator | startMonitor | `clientId`(string)<br>`cb`(function) | Request a validator to start monitoring ledger |
+| 16. | Validator | stopMonitor | `clientId`(string) | Request a validator to stop monitoring ledger |
 
 The detail information is described as following:
 
@@ -798,26 +809,28 @@ The detail information is described as following:
 		```
 		interface Verifier {
 			// BLP -> Verifier
-			getApiList(): List<ApiInfo>;
-			requestLedgerOperation();
+			getSmartContractList(): List<ApiInfo>;
+			sendSignedTransaction();
+			getBalance();
+			execSyncFunction();
 			startMonitor();
 			stopMonitor();
-			// Validator -> Verifier
 			connect();
 			disconnect();
+			// Validator -> Verifier
 			getVerifierInfo(): List<VerifierInfo>;
 		}
 		```
 
-		- class `ApiInfo`, `RequestedData`
+		- class `SmartContractInfo`, `RequestedData`
 			```
-			class ApiInfo {
-				apiType: string,
-				requestedData: List<RequestedData>
+			class SmartContractInfo {
+				address: string,
+				function: List<SmartContractFunction>
 			}
-			class RequestedData {
-				dataName: string,
-				dataType: string {"int", "string", ...}
+			class SmartContractFunction {
+				functionName: string,
+				functionArgs: List<string> (e.g. {"int", "string", ...})
 			}
 			```
 
@@ -835,49 +848,35 @@ The detail information is described as following:
 			}
 			```
 
-		- function `getApiList()`: `List<ApiInfo>`
+		- function `getSmartContractList()`: `List<SmartContractInfo>`
 			- description:
-				- Get the list of available APIs on Verifier
+				- Get the list of available smart contracts at the connected ledger
 			- input parameter:
 				- none
-			- output sample:
-				```
-				{
-					{
-						apiType: "sendSignedTransaction",
-						reqeustedData: {
-							signedTx: signedTx(string),
-						}
-					},
-					{
-						apiType: "getBalance",
-						reqeustedData: {
-							address: address(string),
-						}
-					}
-				}
-				```
 
-		- function `requestLedgerOperation()`:
+		- function `sendSignedTransaction()`: `Promise<LedgerEvent>`
 			- description:
-				- Request a verifier to execute a ledger operation
+				- Send already-signed transactions to a ledger
 			- input parameter:
-				```
-				var params = {
-					apiType: string,
-					progress: string {"escrow", "transfer", ...},
-					data: List<OperationData>
-				}
-				```
+				- `signedTransaction`(string): signed transaction which is already serialized to string
 
-		- class `OperationData`
-			```
-			class OperationData {
-				dataName: dataType
-			}
-			```
+		- function `getBalance()`: `Promise<LedgerEvent>`
+			- description:
+				- Get balance of an account for native token on a ledger
+				- If the connected ledger does not have any default currency system (e.g. Hyperledger fabric), the function is set to be blank)
+			- input parameter:
+				- `address`(string): an account address
 
-		- function `getVerifierInformation()`: `List<ApiInfo>`
+		- function `execSyncFunction()`: `Promise<LedgerEvent>`
+			- description:
+				- Execute a synchronous function held by a smart contract
+				- If the connected ledger does not have any smart contract system (e.g. Bitcoin), the function is set to be blank)
+			- input parameter:
+				- `address`(string): an address of a smart contract
+				- `funcName`(string): a name of a synchronous function of the smart contract
+				- `args`(string[]): arguments for the synchronous function
+
+		- function `getVerifierInformation()`: `List<VerifierInfo>`
 			- description:
 				- Get the verifier information including version, name, ID, and other information
 			- input parameter:
@@ -887,13 +886,14 @@ The detail information is described as following:
 			- description:
 				- Request a verifier to start monitoring ledger
 			- input parameter:
-				- none
+				- `clientId`(string): Client ID of the monitoring start request source
+				- `cb`(function): Callback function that receives the monitoring result at any time
 
 		- function `stopMonitor()`:
 			- description:
 				- Request a verifier to stop monitoring ledger
 			- input parameter:
-				- none
+				- `clientId`(string): Client ID of the monitoring start request source
 
 		- function `connect()`:
 			- description:
@@ -901,7 +901,7 @@ The detail information is described as following:
 			- input parameter:
 				- none
 			- connecting profile:
-				- `validatorURL`
+				- `validatorURL`(string)
 				- authentication credential
 
 		- function `disconnect()`:
@@ -910,22 +910,21 @@ The detail information is described as following:
 			- input parameter:
 				- none
 			- connecting profile:
-				- `validatorURL`
-				- authentication credential
+				- none
 
 	- interface `Validator`
 		```
 		interface Validator {
 			// Verifier -> Validator
 			getValidatorInfo(): List<ValidatorInfo>
+			getSmartContractList();
+			sendSignedTransaction();
+			getBalance();
+			execSyncFunction();
+			startMonitor();
+			stopMonitor();
 		}
 		```
-
-		- function `getValidatorInformation()`:
-			- description:
-				- Get the validator information including version, name, ID, and other information
-			- input parameter:
-				- `validatorURL`
 
 		- class `ValidatorInfo`
 			```
@@ -940,6 +939,53 @@ The detail information is described as following:
 				dataType: string {"int", "string", ...}
 			}
 			```
+
+		- function `getValidatorInformation()`:
+			- description:
+				- Get the validator information including version, name, ID, and other information
+			- input parameter:
+				- `validatorURL`(string)
+
+		- function `getSmartContractList()`: `List<SmartContractInfo>`
+			- description:
+				- Get the list of available smart contracts at the connected ledger
+			- input parameter:
+				- none
+
+		- function `sendSignedTransaction()`: `Promise<LedgerEvent>`
+			- description:
+				- Send already-signed transactions to a ledger
+			- input parameter:
+				- `signedTransaction`(string): signed transaction which is already serialized to string
+
+		- function `getBalance()`: `Promise<LedgerEvent>`
+			- description:
+				- Get balance of an account for native token on a ledger
+				- If the connected ledger does not have any default currency system (e.g. Hyperledger fabric), the function is set to be blank)
+			- input parameter:
+				- `address`(string) : an account address
+
+		- function `execSyncFunction()`: `Promise<LedgerEvent>`
+			- description:
+				- Execute a synchronous function held by a smart contract
+				- If the connected ledger does not have any smart contract system (e.g. Bitcoin), the function is set to be blank)
+			- input parameter:
+				- `address`(string): an address of a smart contract
+				- `funcName`(string): a name of a synchronous function of the smart contract
+				- `args`(string[]): arguments for the synchronous function
+
+		- function `startMonitor()`: `Promise<LedgerEvent>`
+			- description:
+				- Request a verifier to start monitoring ledger
+			- input parameter:
+				- `clientId`(string): Client ID of the monitoring start request source
+				- `cb`(function): Callback function that receives the monitoring result at any time
+
+		- function `stopMonitor()`:
+			- description:
+				- Request a verifier to stop monitoring ledger
+			- input parameter:
+				- `clientId`(string): Client ID of the monitoring start request source
 
 ### 5.3.3 Exection of "business logic" at "Business Logic Plugin"
 
@@ -1544,7 +1590,7 @@ Web 3.0 applications (decentralized apps or *DApps*) which interact with blockch
 
 # 8. Related Work
 Blockchain interoperability is emerging as one of the crucial features of blockchain technology
-A recent survey classifies blockchain interoperability studies in three categories: Cryptocurrency-directed interoperability approaches, Blockchain Engines, and Blockchain Connectors [[4](#8-references)]. Each category is further divided into sub-categories based on defined criteria.
+A recent survey classifies blockchain interoperability studies in three categories: Cryptocurrency-directed interoperability approaches, Blockchain Engines, and Blockchain Connectors [[5](#8-references)]. Each category is further divided into sub-categories based on defined criteria.
 Each category serves particular use cases.
 
 ![rw](./related-work-categories.png)
@@ -1569,4 +1615,6 @@ The blockchain migrator feature paves the way for building a solution that perfo
 
 3: Philipp Frauenthaler, Michael Borkowski, and Stefan Schulte. 2019. A Framework for Blockchain Interoperability and Runtime Selection.
 
-4: Belchior,  A.  Vasconcelos,  S.  Guerreiro,  and  M.  Correia,  “A  Surveyon Blockchain Interoperability: Past, Present, and Future Trends,”arXiv,2020. [Online]. Available: http://arxiv.org/abs/2005.14282
+4: H.M.N. Dilum Bandara, Xiwei Xu, and Ingo Weber. 2020. [Patterns for blockchain data migration](https://arxiv.org/abs/1906.00239). European Conf. on Pattern Languages of Programs 2020 (EuroPLoP 2020).
+
+5: Belchior,  A.  Vasconcelos,  S.  Guerreiro,  and  M.  Correia,  “A  Surveyon Blockchain Interoperability: Past, Present, and Future Trends,”arXiv,2020. [Online]. Available: http://arxiv.org/abs/2005.14282

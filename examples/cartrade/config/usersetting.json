@@ -1,0 +1,22 @@
+{
+    "blpRegistry": [
+        {
+            "businessLogicID": "guks32pf",
+            "validatorID": ["84jUisrs", "r9IS4dDf"]
+        }
+    ],
+    "logLevel": "debug",
+    "applicationHostInfo": {
+        "hostName": "http://xxx.xxxxx.xxx:xxxx",
+        "hostPort": 5034
+    },
+    "socketOptions": {
+        "rejectUnauthorized": false,
+        "reconnection": false,
+        "timeout": 20000
+    },
+    "verifier": {
+        "maxCounterRequestID":100,
+        "syncFunctionTimeoutMillisecond":5000
+    }
+}

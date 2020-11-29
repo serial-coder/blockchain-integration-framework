@@ -5,22 +5,6 @@
             "validatorID": ["84jUisrs", "r9IS4dDf"]
         }
     ],
-    "ledgerPluginInfo": [
-        {
-            "validatorID": "84jUisrs",
-            "validatorURL": "https://localhost:5050",
-            "ledgerInfo": {
-                "ledgerAbstract": "Go-Ethereum Ledger"
-            }
-        },
-        {
-            "validatorID": "r9IS4dDf",
-            "validatorURL": "https://localhost:5040",
-            "ledgerInfo": {
-                "ledgerAbstract": "Fabric Ledger"
-            }
-        }
-    ],
     "logLevel": "debug",
     "applicationHostInfo": {
         "hostName": "http://xxx.xxxxx.xxx:xxxx",
@@ -30,5 +14,9 @@
         "rejectUnauthorized": false,
         "reconnection": false,
         "timeout": 20000
+    },
+    "verifier": {
+        "maxCounterRequestID":100,
+        "syncFunctionTimeoutMillisecond":5000
     }
 }

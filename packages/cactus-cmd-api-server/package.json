@@ -8,10 +8,10 @@
   "files": [
     "dist/*"
   ],
-  "main": "dist/cactus-core-api.node.umd.js",
-  "mainMinified": "dist/cactus-core-api.node.umd.min.js",
-  "browser": "dist/cactus-core-api.web.umd.js",
-  "browserMinified": "dist/cactus-core-api.web.umd.min.js",
+  "main": "dist/cactus-cmd-api-server.node.umd.js",
+  "mainMinified": "dist/cactus-cmd-api-server.node.umd.min.js",
+  "browser": "dist/cactus-cmd-api-server.web.umd.js",
+  "browserMinified": "dist/cactus-cmd-api-server.web.umd.min.js",
   "module": "dist/lib/main/typescript/index.js",
   "types": "dist/types/main/typescript/index.d.ts",
   "scripts": {
@@ -79,7 +79,7 @@
     "joi": "14.3.1",
     "jose": "1.27.2",
     "js-sha3": "0.8.0",
-    "node-fetch": "3.0.0-beta.4",
+    "node-fetch": "3.0.0-beta.9",
     "node-forge": "0.9.1",
     "secp256k1": "4.0.0",
     "semver": "7.3.2",

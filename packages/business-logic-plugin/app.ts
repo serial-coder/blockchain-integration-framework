@@ -7,16 +7,17 @@
 
 import { NextFunction, Request, Response } from 'express';
 
-import * as createError from 'http-errors';
-import * as express from 'express';
-import * as path from 'path';
-import * as cookieParser from 'cookie-parser';
-import * as logger from 'morgan';
-import * as bodyParser from 'body-parser';
+import createError = require('http-errors');
+import express = require('express');
+import path = require('path');
+import cookieParser = require('cookie-parser');
+import logger = require('morgan');
+import bodyParser = require('body-parser');
 
 import indexRouter from '../routing-interface/routes/index';
 import loginRouter from '../routing-interface/routes/login';
 import tradesRouter from '../routing-interface/routes/trades';
+import balanceRouter from '../routing-interface/routes/balance';
 
 const app: express.Express = express();
 
@@ -31,6 +32,7 @@ app.use(bodyParser.json());
 app.use('/', indexRouter);
 app.use('/api/v1/bl/login/', loginRouter);
 app.use('/api/v1/bl/trades/', tradesRouter);
+app.use('/api/v1/bl/balance/', balanceRouter);
 
 // catch 404 and forward to error handler
 app.use((req: Request, res: Response, next: NextFunction) => {

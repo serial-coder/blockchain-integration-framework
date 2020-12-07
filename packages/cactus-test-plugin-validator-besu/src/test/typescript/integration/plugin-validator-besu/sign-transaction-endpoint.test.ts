@@ -1,5 +1,6 @@
 import test, { Test } from "tape";
 
+import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import { createServer } from "http";
 import KeyEncoder from "key-encoder";
@@ -13,14 +14,13 @@ import {
   JsObjectSigner,
   IJsObjectSignerOptions,
 } from "@hyperledger/cactus-common";
-import { Configuration, ApiClient } from "@hyperledger/cactus-api-client";
 import { BesuTestLedger } from "@hyperledger/cactus-test-tooling";
 import {
   IPluginValidatorBesuOptions,
   PluginValidatorBesu,
   DefaultApi,
   SignTransactionRequest,
-  SignTransactionResponse,
+  Configuration,
 } from "@hyperledger/cactus-plugin-validator-besu";
 import { PluginRegistry } from "@hyperledger/cactus-core-api";
 
@@ -72,6 +72,7 @@ test("Test sign transaction endpoint", async (t: Test) => {
 
     // 3. Instantiate the web service consortium plugin
     const options: IPluginValidatorBesuOptions = {
+      instanceId: uuidv4(),
       rpcApiHttpHost: rcpHttpHost,
       keyPairPem: pemPrivate,
       pluginRegistry,
@@ -136,7 +137,7 @@ test("Test sign transaction endpoint", async (t: Test) => {
     const request: SignTransactionRequest = { transactionHash: txHash };
 
     const configuration = new Configuration({ basePath: node1Host });
-    const api = new ApiClient(configuration).extendWith(DefaultApi);
+    const api = new DefaultApi(configuration);
 
     // Test for 200 valid response test case
     const res = await api.apiV1PluginsHyperledgerCactusPluginValidatorBesuSignTransactionPost(

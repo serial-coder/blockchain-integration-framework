@@ -6,40 +6,57 @@ import express, { Express } from "express";
 import bodyParser from "body-parser";
 
 import {
+  Consortium,
   IPluginWebService,
   PluginAspect,
   PluginRegistry,
   IWebServiceEndpoint,
+  ICactusPlugin,
+  ICactusPluginOptions,
 } from "@hyperledger/cactus-core-api";
-import { Logger, LoggerProvider } from "@hyperledger/cactus-common";
+import {
+  Checks,
+  Logger,
+  LoggerProvider,
+  LogLevelDesc,
+} from "@hyperledger/cactus-common";
 import { GetConsortiumEndpointV1 } from "./consortium/get-consortium-jws-endpoint-v1";
-import { Consortium } from "./generated/openapi/typescript-axios";
 import { GetNodeJwsEndpoint } from "./consortium/get-node-jws-endpoint-v1";
+import uuid from "uuid";
 
 export interface IWebAppOptions {
   port: number;
   hostname: string;
 }
 
-export interface IPluginConsortiumManualOptions {
+export interface IPluginConsortiumManualOptions extends ICactusPluginOptions {
   keyPairPem: string;
   consortium: Consortium;
-  pluginRegistry: PluginRegistry;
-  logLevel?: string;
+  pluginRegistry?: PluginRegistry;
+  logLevel?: LogLevelDesc;
   webAppOptions?: IWebAppOptions;
 }
 
-export class PluginConsortiumManual implements IPluginWebService {
+export class PluginConsortiumManual
+  implements ICactusPlugin, IPluginWebService {
   private readonly log: Logger;
+  private readonly instanceId: string;
   private httpServer: Server | SecureServer | null = null;
 
   constructor(public readonly options: IPluginConsortiumManualOptions) {
+    const fnTag = `PluginConsortiumManual#constructor()`;
     if (!options) {
-      throw new Error(`PluginConsortiumManual#ctor options falsy.`);
+      throw new Error(`${fnTag} options falsy.`);
     }
+    Checks.truthy(options.instanceId, `${fnTag} options.instanceId`);
     this.log = LoggerProvider.getOrCreate({
       label: "plugin-consortium-manual",
     });
+    this.instanceId = this.options.instanceId;
+  }
+
+  public getInstanceId(): string {
+    return this.instanceId;
   }
 
   public async shutdown(): Promise<void> {
@@ -60,7 +77,7 @@ export class PluginConsortiumManual implements IPluginWebService {
   ): Promise<IWebServiceEndpoint[]> {
     const { log } = this;
 
-    log.info(`Installing web services for plugin ${this.getId()}...`);
+    log.info(`Installing web services for plugin ${this.getPackageName()}...`);
     const webApp: Express = this.options.webAppOptions ? express() : expressApp;
 
     // presence of webAppOptions implies that caller wants the plugin to configure it's own express instance on a custom
@@ -72,7 +89,7 @@ export class PluginConsortiumManual implements IPluginWebService {
       webApp.use(bodyParser.json({ limit: "50mb" }));
 
       const address = await new Promise((resolve, reject) => {
-        const httpServer = webApp.listen(port, hostname, (err: any) => {
+        const httpServer = webApp.listen(port, hostname, (err?: any) => {
           if (err) {
             reject(err);
             this.log.error(`Failed to create dedicated HTTP server`, err);
@@ -87,11 +104,11 @@ export class PluginConsortiumManual implements IPluginWebService {
     }
 
     const { consortium, keyPairPem } = this.options;
-    const pluginId = this.getId();
+    const packageName = this.getPackageName();
 
     const endpoints: IWebServiceEndpoint[] = [];
     {
-      const path = `/api/v1/plugins/${pluginId}/consortium/jws`;
+      const path = `/api/v1/plugins/${packageName}/consortium/jws`;
       const options = { path, keyPairPem, consortium };
       const endpoint = new GetConsortiumEndpointV1(options);
       webApp.get(endpoint.getPath(), endpoint.getExpressRequestHandler());
@@ -99,7 +116,7 @@ export class PluginConsortiumManual implements IPluginWebService {
       this.log.info(`Registered contract deployment endpoint at ${path}`);
     }
     {
-      const path = `/api/v1/plugins/${pluginId}/node/jws`;
+      const path = `/api/v1/plugins/${packageName}/node/jws`;
       const options = { path, keyPairPem, consortium };
       const endpoint = new GetNodeJwsEndpoint(options);
       webApp.get(endpoint.getPath(), endpoint.getExpressRequestHandler());
@@ -107,7 +124,9 @@ export class PluginConsortiumManual implements IPluginWebService {
       this.log.info(`Registered contract deployment endpoint at ${path}`);
     }
 
-    log.info(`Installed web svcs for plugin ${this.getId()} OK`, { endpoints });
+    log.info(`Installed web svcs for plugin ${this.getPackageName()} OK`, {
+      endpoints,
+    });
     return endpoints;
   }
 
@@ -115,7 +134,7 @@ export class PluginConsortiumManual implements IPluginWebService {
     return Optional.ofNullable(this.httpServer);
   }
 
-  public getId(): string {
+  public getPackageName(): string {
     return `@hyperledger/cactus-plugin-consortium-manual`;
   }
 

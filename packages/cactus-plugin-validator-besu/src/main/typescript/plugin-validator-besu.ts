@@ -12,11 +12,14 @@ import {
   PluginAspect,
   PluginRegistry,
   IWebServiceEndpoint,
+  ICactusPlugin,
+  ICactusPluginOptions,
 } from "@hyperledger/cactus-core-api";
 import {
   LogLevelDesc,
   Logger,
   LoggerProvider,
+  Checks,
 } from "@hyperledger/cactus-common";
 
 import { BesuSignTransactionEndpointV1 } from "./besu/sign-transaction-endpoint-v1";
@@ -27,7 +30,7 @@ export interface IWebAppOptions {
   hostname: string;
 }
 
-export interface IPluginValidatorBesuOptions {
+export interface IPluginValidatorBesuOptions extends ICactusPluginOptions {
   rpcApiHttpHost: string;
   keyPairPem: string;
   pluginRegistry: PluginRegistry;
@@ -35,7 +38,8 @@ export interface IPluginValidatorBesuOptions {
   webAppOptions?: IWebAppOptions;
 }
 
-export class PluginValidatorBesu implements IPluginWebService {
+export class PluginValidatorBesu implements ICactusPlugin, IPluginWebService {
+  private readonly instanceId: string;
   private readonly log: Logger;
   private httpServer: Server | SecureServer | null = null;
 
@@ -53,11 +57,17 @@ export class PluginValidatorBesu implements IPluginWebService {
     if (!options.pluginRegistry) {
       throw new Error(`${fnTag} options.pluginRegistry falsy.`);
     }
+    Checks.truthy(options.instanceId, `${fnTag}#options.instanceId`);
 
     this.log = LoggerProvider.getOrCreate({
       label: "plugin-validator-besu",
       level: options.logLevel || "INFO",
     });
+    this.instanceId = options.instanceId;
+  }
+
+  public getInstanceId(): string {
+    return this.instanceId;
   }
 
   public async shutdown(): Promise<void> {
@@ -78,7 +88,7 @@ export class PluginValidatorBesu implements IPluginWebService {
   ): Promise<IWebServiceEndpoint[]> {
     const { log } = this;
 
-    log.info(`Installing web services for plugin ${this.getId()}...`);
+    log.info(`Installing web services for plugin ${this.getPackageName()}...`);
     const webApp: Express = this.options.webAppOptions ? express() : expressApp;
 
     // presence of webAppOptions implies that caller wants the plugin to configure it's own express instance on a custom
@@ -90,7 +100,7 @@ export class PluginValidatorBesu implements IPluginWebService {
       webApp.use(bodyParser.json({ limit: "50mb" }));
 
       const address = await new Promise((resolve, reject) => {
-        const httpServer = webApp.listen(port, hostname, (err: any) => {
+        const httpServer = webApp.listen(port, hostname, (err?: any) => {
           if (err) {
             reject(err);
             this.log.error(`Failed to create dedicated HTTP server`, err);
@@ -112,11 +122,11 @@ export class PluginValidatorBesu implements IPluginWebService {
     await openApiValidator.install(app);
 
     const { rpcApiHttpHost, keyPairPem } = this.options;
-    const pluginId = this.getId();
+    const packageName = this.getPackageName();
 
     const endpoints: IWebServiceEndpoint[] = [];
     {
-      const path = `/api/v1/plugins/${pluginId}/sign-transaction`;
+      const path = `/api/v1/plugins/${packageName}/sign-transaction`;
       const options = { rpcApiHttpHost, keyPairPem, path };
       const endpoint = new BesuSignTransactionEndpointV1(options);
       webApp.post(endpoint.getPath(), endpoint.getExpressRequestHandler());
@@ -124,7 +134,9 @@ export class PluginValidatorBesu implements IPluginWebService {
       this.log.info(`Registered contract deployment endpoint at ${path}`);
     }
 
-    log.info(`Installed web svcs for plugin ${this.getId()} OK`, { endpoints });
+    log.info(`Installed web svcs for plugin ${this.getPackageName()} OK`, {
+      endpoints,
+    });
     return endpoints;
   }
 
@@ -132,7 +144,7 @@ export class PluginValidatorBesu implements IPluginWebService {
     return Optional.ofNullable(this.httpServer);
   }
 
-  public getId(): string {
+  public getPackageName(): string {
     return `@hyperledger/cactus-plugin-validator-besu`;
   }
 

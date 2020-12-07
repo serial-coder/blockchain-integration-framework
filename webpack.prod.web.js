@@ -7,6 +7,7 @@ const BundleAnalyzerPlugin = require("webpack-bundle-analyzer")
 const packageNameNoScope = pkg.name.substring(pkg.name.lastIndexOf("/") + 1);
 const libraryName = `${packageNameNoScope}`;
 
+/** @type {import("webpack").Configuration} */
 module.exports = {
   entry: {
     [pkg.browserMinified]: `${packageDir}/src/main/typescript/index.web.ts`,
@@ -43,6 +44,11 @@ module.exports = {
   },
   resolve: {
     extensions: [".ts", ".js"],
+    fallback: {
+      crypto: require.resolve("crypto-browserify"),
+      buffer: require.resolve("buffer/"),
+      stream: require.resolve("stream-browserify"),
+    },
   },
   optimization: {
     minimizer: [new TerserPlugin()],

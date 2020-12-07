@@ -1,22 +1,26 @@
 import uuid from "uuid";
-import { Request, Response, NextFunction } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import { JWS, JWK } from "jose";
 import jsonStableStringify from "json-stable-stringify";
 
 import {
+  Consortium,
+  JWSGeneral,
   IWebServiceEndpoint,
   IExpressRequestHandler,
 } from "@hyperledger/cactus-core-api";
-import {
-  GetNodeJwsResponse,
-  Consortium,
-  JWSGeneral,
-} from "../generated/openapi/typescript-axios";
+
+import { GetNodeJwsResponse } from "../generated/openapi/typescript-axios";
+
 import {
   Logger,
   LogLevelDesc,
   LoggerProvider,
 } from "@hyperledger/cactus-common";
+
+import { registerWebServiceEndpoint } from "@hyperledger/cactus-core";
+
+import { GetNodeJwsEndpoint as Constants } from "./get-node-jws-endpoint-constants";
 
 export interface IGetNodeJwsEndpointOptions {
   keyPairPem: string;
@@ -49,7 +53,16 @@ export class GetNodeJwsEndpoint implements IWebServiceEndpoint {
   }
 
   getPath(): string {
-    return this.options.path;
+    return Constants.HTTP_PATH;
+  }
+
+  getVerbLowerCase(): string {
+    return Constants.HTTP_VERB_LOWER_CASE;
+  }
+
+  registerExpress(app: Express): IWebServiceEndpoint {
+    registerWebServiceEndpoint(app, this);
+    return this;
   }
 
   async handleRequest(

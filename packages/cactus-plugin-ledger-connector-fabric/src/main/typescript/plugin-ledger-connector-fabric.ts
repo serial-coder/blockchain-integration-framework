@@ -12,6 +12,8 @@ import {
   PluginAspect,
   IPluginWebService,
   IWebServiceEndpoint,
+  ICactusPlugin,
+  ICactusPluginOptions,
 } from "@hyperledger/cactus-core-api";
 
 import {
@@ -26,7 +28,8 @@ import {
 } from "./deploy-contract-go-bin-endpoint-v1";
 import { ISigningIdentity } from "./i-fabric-signing-identity";
 
-export interface IPluginLedgerConnectorFabricOptions {
+export interface IPluginLedgerConnectorFabricOptions
+  extends ICactusPluginOptions {
   opsApiHttpHost: string;
   logLevel?: LogLevelDesc;
   webAppOptions?: any;
@@ -40,7 +43,11 @@ export interface ITransactionOptions {
 }
 
 export class PluginLedgerConnectorFabric
-  implements IPluginLedgerConnector<any, any>, IPluginWebService {
+  implements
+    IPluginLedgerConnector<any, any, any, any>,
+    ICactusPlugin,
+    IPluginWebService {
+  private readonly instanceId: string;
   private readonly log: Logger;
 
   private httpServer: Server | SecureServer | undefined;
@@ -49,17 +56,27 @@ export class PluginLedgerConnectorFabric
     const fnTag = "PluginLedgerConnectorFabric#constructor()";
 
     Checks.truthy(options, `${fnTag} arg options`);
+    Checks.truthy(options.instanceId, `${fnTag} options.instanceId`);
+
+    this.instanceId = options.instanceId;
 
     const level = this.options.logLevel || "INFO";
     const label = "plugin-ledger-connector-fabric";
     this.log = LoggerProvider.getOrCreate({ level, label });
+  }
+  transact(options?: any): Promise<any> {
+    throw new Error("Method not implemented.");
   }
 
   public shutdown(): Promise<void> {
     throw new Error("Method not implemented.");
   }
 
-  public getId(): string {
+  public getInstanceId(): string {
+    return this.instanceId;
+  }
+
+  public getPackageName(): string {
     return `@hyperledger/cactus-plugin-ledger-connectur-fabric`;
   }
 
@@ -92,7 +109,7 @@ export class PluginLedgerConnectorFabric
   ): Promise<IWebServiceEndpoint[]> {
     const { log } = this;
 
-    log.info(`Installing web services for plugin ${this.getId()}...`);
+    log.info(`Installing web services for plugin ${this.getPackageName()}...`);
     const webApp: Express = this.options.webAppOptions ? express() : expressApp;
 
     // FIXME refactor this
@@ -105,7 +122,7 @@ export class PluginLedgerConnectorFabric
       webApp.use(bodyParser.json({ limit: "50mb" }));
 
       const address = await new Promise((resolve, reject) => {
-        const httpServer = webApp.listen(port, hostname, (err: any) => {
+        const httpServer = webApp.listen(port, hostname, (err?: any) => {
           if (err) {
             reject(err);
             this.log.error(`Failed to create dedicated HTTP server`, err);
@@ -120,14 +137,14 @@ export class PluginLedgerConnectorFabric
     }
 
     const { sshConfig, connectionProfile, adminSigningIdentity } = this.options;
-    const pluginId = this.getId();
+    const packageName = this.getPackageName();
 
     const storage = multer.memoryStorage();
     const upload = multer({ storage });
 
     const endpoints: IWebServiceEndpoint[] = [];
     {
-      const path = `/api/v1/plugins/${pluginId}/deploy-contract-go-bin`;
+      const path = `/api/v1/plugins/${packageName}/deploy-contract-go-bin`;
       const opts: IDeployContractGoBinEndpointV1Options = {
         path,
         sshConfig,
@@ -145,7 +162,9 @@ export class PluginLedgerConnectorFabric
       this.log.info(`Registered contract deployment endpoint at ${path}`);
     }
 
-    log.info(`Installed web svcs for plugin ${this.getId()} OK`, { endpoints });
+    log.info(`Installed web svcs for plugin ${this.getPackageName()} OK`, {
+      endpoints,
+    });
     return endpoints;
   }
 

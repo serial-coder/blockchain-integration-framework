@@ -1,8 +1,11 @@
 import { EventEmitter } from "events";
 import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 import Docker, { Container, ContainerInfo } from "dockerode";
 import Joi from "joi";
 import tar from "tar-stream";
+import Web3 from "web3";
+import { Account } from "web3-core";
 import { ITestLedger } from "../i-test-ledger";
 import { Streams } from "../common/streams";
 import { IKeyPair } from "../i-key-pair";
@@ -103,6 +106,54 @@ export class QuorumTestLedger implements ITestLedger {
 
       response.pipe(extract);
     });
+  }
+
+  /**
+   * Obtains the address of an account from the genesis allocation with a
+   * minimum balance of `minBalance`.
+   *
+   * @param minBalance The minimum balance to try and find a genesis account with.
+   *
+   * @throws {Error} If the balance is too high and there aren't any genesis
+   * accounts allocated with such a high balance then an exceptin is thrown.
+   */
+  public async getGenesisAccount(minBalance: number = 10e7): Promise<string> {
+    const { alloc } = await this.getGenesisJsObject();
+
+    const firstHighNetWorthAccount = Object.keys(alloc).find(
+      (addr) => parseInt(alloc[addr].balance, 10) > minBalance
+    ) as string;
+
+    return firstHighNetWorthAccount;
+  }
+
+  /**
+   * Creates a new ETH account from scratch on the ledger and then sends it a
+   * little seed money to get things started.
+   *
+   * @param [seedMoney=10e8] The amount of money to seed the new test account with.
+   */
+  public async createEthTestAccount(
+    seedMoney: number = 10e8
+  ): Promise<Account> {
+    const fnTag = `QuorumTestLedger#getEthTestAccount()`;
+
+    const rpcApiHttpHost = await this.getRpcApiHttpHost();
+    const web3 = new Web3(rpcApiHttpHost);
+    const ethTestAccount = web3.eth.accounts.create(uuidv4());
+
+    const genesisAccount = await this.getGenesisAccount();
+
+    await web3.eth.personal.sendTransaction(
+      {
+        from: genesisAccount,
+        to: ethTestAccount.address,
+        value: seedMoney,
+      },
+      ""
+    );
+
+    return ethTestAccount;
   }
 
   public async getQuorumKeyPair(): Promise<IKeyPair> {

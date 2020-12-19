@@ -2,6 +2,7 @@ import { OpenAPIV3 } from "openapi-types";
 import { DeployContractSolidityBytecodeEndpoint } from "./web-services/deploy-contract-solidity-bytecode-endpoint-constants";
 import { RunTransactionEndpoint } from "./web-services/run-transaction-endpoint-constants";
 import { InvokeContractEndpoint } from "./web-services/invoke-contract-endpoint-constants";
+import { BesuSignTransactionEndpointV1 } from "./web-services/sign-transaction-endpoint-constants";
 
 export const CACTUS_OPEN_API_JSON: OpenAPIV3.Document = {
   openapi: "3.0.3",
@@ -40,10 +41,6 @@ export const CACTUS_OPEN_API_JSON: OpenAPIV3.Document = {
         },
         oneOf: [
           {
-            $ref:
-              "#/components/schemas/Web3SigningCredentialGethKeychainPassword",
-          },
-          {
             $ref: "#/components/schemas/Web3SigningCredentialCactusKeychainRef",
           },
           { $ref: "#/components/schemas/Web3SigningCredentialPrivateKeyHex" },
@@ -52,30 +49,6 @@ export const CACTUS_OPEN_API_JSON: OpenAPIV3.Document = {
         properties: {
           type: {
             $ref: "#/components/schemas/Web3SigningCredentialType",
-          },
-        },
-      },
-      Web3SigningCredentialGethKeychainPassword: {
-        type: "object",
-        required: ["type", "ethAccount", "secret"],
-        properties: {
-          type: {
-            $ref: "#/components/schemas/Web3SigningCredentialType",
-          },
-          ethAccount: {
-            type: "string",
-            description:
-              "The ethereum account (public key) that the credential " +
-              " belongs to. Basically the username in the traditional terminology of authentication.",
-            minLength: 64,
-            maxLength: 64,
-            nullable: false,
-          },
-          secret: {
-            type: "string",
-            description: "A geth keychain unlock password.",
-            minLength: 0,
-            maxLength: 65535,
           },
         },
       },
@@ -473,6 +446,46 @@ export const CACTUS_OPEN_API_JSON: OpenAPIV3.Document = {
           callOutput: {},
         },
       },
+      SignTransactionRequest: {
+        type: "object",
+        required: ["transactionHash", "keychainId", "keychainRef"],
+        properties: {
+          keychainId: {
+            type: "string",
+            minLength: 1,
+            maxLength: 100,
+            nullable: false,
+          },
+          keychainRef: {
+            type: "string",
+            minLength: 1,
+            maxLength: 100,
+            nullable: false,
+          },
+          transactionHash: {
+            description:
+              "The transaction hash of ledger will be used to fetch the contain.",
+            type: "string",
+            minLength: 0,
+            maxLength: 2048,
+            nullable: false,
+          },
+        },
+      },
+      SignTransactionResponse: {
+        type: "object",
+        required: ["signature"],
+        properties: {
+          signature: {
+            description:
+              "The signatures of ledger from the corresponding transaction hash.",
+            type: "string",
+            minLength: 0,
+            maxLength: 2048,
+            nullable: false,
+          },
+        },
+      },
     },
   },
   paths: {
@@ -559,6 +572,42 @@ export const CACTUS_OPEN_API_JSON: OpenAPIV3.Document = {
                 },
               },
             },
+          },
+        },
+      },
+    },
+    [BesuSignTransactionEndpointV1.HTTP_PATH]: {
+      [BesuSignTransactionEndpointV1.HTTP_VERB_LOWER_CASE]: {
+        operationId: BesuSignTransactionEndpointV1.OPENAPI_OPERATION_ID,
+        summary:
+          "Obtain signatures of ledger from the corresponding transaction hash.",
+        description:
+          "Obtain signatures of ledger from the corresponding transaction hash.",
+        parameters: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/SignTransactionRequest",
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SignTransactionResponse",
+                },
+              },
+            },
+          },
+          "404": {
+            description:
+              "Not able to find the corresponding tranaction from the transaction hash",
           },
         },
       },

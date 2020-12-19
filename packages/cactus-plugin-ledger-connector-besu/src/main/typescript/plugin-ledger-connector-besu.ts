@@ -5,7 +5,6 @@ import { Express } from "express";
 import { promisify } from "util";
 import { Optional } from "typescript-optional";
 import Web3 from "web3";
-import EEAClient, { IWeb3InstanceExtended } from "web3-eea";
 
 import { ContractSendMethod } from "web3-eth-contract";
 import { TransactionReceipt } from "web3-eth";
@@ -23,6 +22,11 @@ import {
 
 import {
   Checks,
+  CodedError,
+  IJsObjectSignerOptions,
+  JsObjectSigner,
+  KeyConverter,
+  KeyFormat,
   Logger,
   LoggerProvider,
   LogLevelDesc,
@@ -38,8 +42,9 @@ import {
   InvokeContractV1Response,
   RunTransactionRequest,
   RunTransactionResponse,
+  SignTransactionRequest,
+  SignTransactionResponse,
   Web3SigningCredentialCactusKeychainRef,
-  Web3SigningCredentialGethKeychainPassword,
   Web3SigningCredentialPrivateKeyHex,
   Web3SigningCredentialType,
 } from "./generated/openapi/typescript-axios/";
@@ -47,6 +52,9 @@ import {
 import { RunTransactionEndpoint } from "./web-services/run-transaction-endpoint";
 import { InvokeContractEndpoint } from "./web-services/invoke-contract-endpoint";
 import { isWeb3SigningCredentialNone } from "./model-type-guards";
+import { BesuSignTransactionEndpointV1 } from "./web-services/sign-transaction-endpoint-v1";
+
+export const E_KEYCHAIN_NOT_FOUND = "cactus.connector.besu.keychain_not_found";
 
 export interface IPluginLedgerConnectorBesuOptions
   extends ICactusPluginOptions {
@@ -140,6 +148,14 @@ export class PluginLedgerConnectorBesu
       endpoint.registerExpress(expressApp);
       endpoints.push(endpoint);
     }
+    {
+      const endpoint = new BesuSignTransactionEndpointV1({
+        connector: this,
+        logLevel: this.options.logLevel,
+      });
+      endpoint.registerExpress(expressApp);
+      endpoints.push(endpoint);
+    }
     return endpoints;
   }
 
@@ -180,9 +196,7 @@ export class PluginLedgerConnectorBesu
       if (isWeb3SigningCredentialNone(req.web3SigningCredential)) {
         throw new Error(`${fnTag} Cannot deploy contract with pre-signed TX`);
       }
-      const web3SigningCredential = req.web3SigningCredential as
-        | Web3SigningCredentialGethKeychainPassword
-        | Web3SigningCredentialPrivateKeyHex;
+      const web3SigningCredential = req.web3SigningCredential as Web3SigningCredentialPrivateKeyHex;
 
       const payload = (method.send as any).request();
       const { params } = payload;
@@ -210,11 +224,11 @@ export class PluginLedgerConnectorBesu
     const fnTag = `${this.className}#transact()`;
 
     switch (req.web3SigningCredential.type) {
+      // Web3SigningCredentialType.GETHKEYCHAINPASSWORD is removed as Hyperledger Besu doesn't support the PERSONAL api
+      // for --rpc-http-api as per the discussion mentioned here
+      // https://chat.hyperledger.org/channel/besu-contributors?msg=GqQXfW3k79ygRtx5Q
       case Web3SigningCredentialType.CACTUSKEYCHAINREF: {
         return this.transactCactusKeychainRef(req);
-      }
-      case Web3SigningCredentialType.GETHKEYCHAINPASSWORD: {
-        return this.transactGethKeychain(req);
       }
       case Web3SigningCredentialType.PRIVATEKEYHEX: {
         return this.transactPrivateKey(req);
@@ -252,27 +266,6 @@ export class PluginLedgerConnectorBesu
       throw receipt;
     } else {
       return { transactionReceipt: receipt };
-    }
-  }
-
-  public async transactGethKeychain(
-    txIn: RunTransactionRequest
-  ): Promise<RunTransactionResponse> {
-    const fnTag = `${this.className}#transactGethKeychain()`;
-    const { sendTransaction } = this.web3.eth.personal;
-    const { transactionConfig, web3SigningCredential } = txIn;
-    const {
-      secret,
-    } = web3SigningCredential as Web3SigningCredentialGethKeychainPassword;
-    try {
-      const txHash = await sendTransaction(transactionConfig, secret);
-      const transactionReceipt = await this.pollForTxReceipt(txHash);
-      return { transactionReceipt };
-    } catch (ex) {
-      throw new Error(
-        `${fnTag} Failed to invoke web3.eth.personal.sendTransaction(). ` +
-          `InnerException: ${ex.stack}`
-      );
     }
   }
 
@@ -365,9 +358,7 @@ export class PluginLedgerConnectorBesu
     if (isWeb3SigningCredentialNone(req.web3SigningCredential)) {
       throw new Error(`${fnTag} Cannot deploy contract with pre-signed TX`);
     }
-    const web3SigningCredential = req.web3SigningCredential as
-      | Web3SigningCredentialGethKeychainPassword
-      | Web3SigningCredentialPrivateKeyHex;
+    const web3SigningCredential = req.web3SigningCredential as Web3SigningCredentialPrivateKeyHex;
 
     return this.transact({
       transactionConfig: {
@@ -378,5 +369,55 @@ export class PluginLedgerConnectorBesu
       },
       web3SigningCredential,
     });
+  }
+
+  public async signTransaction(
+    req: SignTransactionRequest
+  ): Promise<Optional<SignTransactionResponse>> {
+    const { pluginRegistry, rpcApiHttpHost, logLevel } = this.options;
+    const { keychainId, keychainRef, transactionHash } = req;
+
+    const converter = new KeyConverter();
+
+    const web3Provider = new Web3.providers.HttpProvider(rpcApiHttpHost);
+    const web3 = new Web3(web3Provider);
+
+    // Make sure the transaction exists on the ledger first...
+    const transaction = await web3.eth.getTransaction(transactionHash);
+    if (!transaction) {
+      return Optional.empty();
+    }
+
+    const keychains = pluginRegistry.findManyByAspect<IPluginKeychain>(
+      PluginAspect.KEYCHAIN
+    );
+
+    const keychain = keychains.find((kc) => kc.getKeychainId() === keychainId);
+
+    if (!keychain) {
+      const msg = `Keychain for ID ${keychainId} not found.`;
+      throw new CodedError(msg, E_KEYCHAIN_NOT_FOUND);
+    }
+
+    const pem: string = await keychain.get(keychainRef);
+
+    const pkRaw = converter.privateKeyAs(pem, KeyFormat.PEM, KeyFormat.Raw);
+
+    const jsObjectSignerOptions: IJsObjectSignerOptions = {
+      privateKey: pkRaw,
+      logLevel,
+    };
+
+    const jsObjectSigner = new JsObjectSigner(jsObjectSignerOptions);
+
+    if (transaction !== undefined && transaction !== null) {
+      const singData = jsObjectSigner.sign(transaction.input);
+      const signDataHex = Buffer.from(singData).toString("hex");
+
+      const resBody: SignTransactionResponse = { signature: signDataHex };
+      return Optional.ofNullable(resBody);
+    }
+
+    return Optional.empty();
   }
 }
